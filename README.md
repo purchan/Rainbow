@@ -7,7 +7,20 @@
 - Physics
   - Refraction
   - Reflection
-  
+## Structure
+- lightList: List
+- dropList : List
+- generateLight(pos: vec, v: vec, range: Integer)
+  - lambdaToN(lambda: Integer)
+  - lambdaToRgb(lambda: Integer)
+  - light.nextpos()
+  - light.tryRefractReflect
+    - light.n
+    - const Refl/Refr
+- generateDrop( pos: vec)
+- tryRefractReflect()
+- cameraRotation()
+
 ## Reference
 ### Light : Color and Refraction Index Correction
 - [Refractive Equations](https://en.wikipedia.org/wiki/Sellmeier_equation)

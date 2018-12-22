@@ -167,13 +167,11 @@ light_r = 0.0001
 light_v = vec(10, 0, 0)
 light_maketr = True
 light_trail  = 0.15
-light_gen = [vec(-60, -35, 0) for x in range(0, 5)]
+light_gen = [vec(-60, -40, x) for x in range(-30, 35, 5)]
 
 drop_r  = 50
 drop_gen = [vec(0, 0, 0)]
 
-## WIP
-rl = 0.5         # possiblity of Refraction/Reflection
 # variables
 light_list = []
 drop_list  = []
@@ -200,18 +198,18 @@ class LP(sphere):
         global dt
         return self.pos + self.v * dt
     def tryRefractReflect(self):
-        global rl, drop_list
+        global drop_list
         for drop in drop_list:
             dis_dl = drop.pos - self.pos
             # res[1] == hasRefract()
             if   mag(dis_dl)>drop.r and mag(drop.pos-self.nextpos())<drop.r:
-                res = fraction(self.n,self.nw,self.pos,self.v)
+                res = fraction(self.n,self.nw,self.pos,self.v,drop.pos)
                 self.v = res[0]
                 while mag(dis_dl)>drop.r and res[1]:
                     self.pos = self.nextpos()
                     dis_dl = drop.pos - self.pos
             elif mag(dis_dl)<drop.r and mag(drop.pos-self.nextpos())>drop.r:
-                res = fraction(self.nw,self.n,self.pos,self.v)
+                res = fraction(self.nw,self.n,self.pos,self.v,drop.pos)
                 self.v = res[0]
                 while mag(dis_dl)<drop.r and res[1]:
                     self.pos = self.nextpos()
@@ -231,21 +229,30 @@ def generateDrop(pos):
     tmp.r = tmp.radius
     drop_list.append(tmp)
     
-def fraction(n1,n2,pos,v):
-    global rl
-    theta1 = diff_angle(-pos,v)
-    linear_projection1 = proj(v,-pos)
+def fraction(n1,n2,pos,v,dpos):
+    theta1 = diff_angle(dpos-pos,v)
+    if theta1 > m.pi/2:
+        theta1 = pi - theta1
+    linear_projection1 = proj(v,dpos-pos)
     planar_projection1 = v-linear_projection1
     try:
         theta2 = asin(sin(theta1)*n1/n2)
     except:
         return (planar_projection1-linear_projection1, False)
-    if rand.random()< rl:     #Refraction
-        linear_projection2 = mag(v)*cos(theta2)*norm(linear_projection1)
-        planar_projection2 = mag(v)*sin(theta2)*norm(planar_projection1)
-        return (linear_projection2+planar_projection2, True)
     else:
-        return (planar_projection1-linear_projection1, False)
+        # Fresnel equation, sunlight is classify as unpolarized
+        # Rs = ((n1*m.cos(theta1) - n2*m.cos(theta2))/(n1*m.cos(theta1) + n2*m.cos(theta2)))**2
+        # Rp = ((n1*m.cos(theta2) - n2*m.cos(theta1))/(n1*m.cos(theta2) + n2*m.cos(theta1)))**2
+        # rl = (Rs+Rp)/2
+        
+        rl = 0.5
+        
+        if rand.random()> rl:     # Refraction
+            linear_projection2 = mag(v)*cos(theta2)*norm(linear_projection1)
+            planar_projection2 = mag(v)*sin(theta2)*norm(planar_projection1)
+            return (linear_projection2+planar_projection2, True)
+        else:                     # Reflection
+            return (planar_projection1-linear_projection1, False)
 # def cameraRotation():
 #     pass
 

@@ -7,6 +7,8 @@
 - Physics
   - Refraction
   - Reflection
+  
+  - Fresnel's equation
 ## Structure
 - lightList: List
 - dropList : List

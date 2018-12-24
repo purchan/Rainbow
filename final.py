@@ -273,6 +273,7 @@ for pos in drop_gen:        # generateDrop
     # assert every drop does not collide with each other
     tmp   = sphere(radius=drop_r, color=color.white,opacity=0.1)
     tmp.r = tmp.radius
+    tmp.pos = pos
     drop_list.append(tmp)
     
     if mag(pos) > drop_furthest:

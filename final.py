@@ -171,31 +171,37 @@ light_trail  = 0.15
 drop_r  = 50
 
 ## Generator
-light_gen = [vec(-60, -40, x) for x in range(0, 1, 1)]
+light_gen = [vec(-60, -40, x) for x in range(-15, 20, 5)]
 drop_gen  = [vec(0, 0, 0)]
 
 light_list = [[]]
 drop_list  = []
 
 # functions
-class LP(sphere):     # Light Particle
+class LP(box):     # Light Particle
     def __init__(self, λ, pos, _rl, _v=light_v, _e=1):
         global light_r, light_v, light_maketr, light_trail
         self.λ = λ
-        sphere.__init__(self, radius=light_r, color=lambdaToRgb(λ), make_trail=light_maketr, trail_radius=light_trail)
+        box.__init__(self, pos=pos, axis=vec(0,1,0), size=vec(light_r,light_r,light_r), color=lambdaToRgb(λ), make_trail=light_maketr, trail_radius=light_trail)
         
         self.n = lambdaToN(λ)
         self.nw = lambdaToNW(λ)
         
-        self.pos = pos
         self.v = _v
         
         # assert _rl == "r" or "l"
-        self.E   = _e         # Energy
+        self.setEnergy(_e)
+        
         self._rl = _rl
     def nextpos(self):
         global dt
         return self.pos + self.v * dt
+    def setEnergy(self, _e):
+        if   _e > 1:
+            _e = 1
+        elif _e < 0:
+            _e = 0
+        self.E   = _e         # Energy
     def tryRefractReflect(self):
         global drop_list
         for drop in drop_list:
@@ -240,14 +246,14 @@ class LP(sphere):     # Light Particle
             linear_proj2 = mag(self.v)*cos(θ2)*norm(linear_proj1)
             planar_proj2 = mag(self.v)*sin(θ2)*norm(planar_proj1)
             if self._rl=="r":     # Refraction
-                self.E *= rl
+                self.setEnergy(rl)
                 
                 lp_l = LP(self.λ, self.pos, "l", planar_proj1-linear_proj1, self.E*(1-rl))
                 light_list[0].append(lp_l)
                 
                 return (linear_proj2+planar_proj2, True)
             if self._rl=="l":     # Reflection
-                self.E *= 1-rl
+                self.setEnergy(1-rl)
                 
                 lp_r = LP(self.λ, self.pos, "r", planar_proj2+linear_proj2, self.E*(rl))
                 while mag(drop.pos - lp_r.pos)<drop.r:
@@ -287,6 +293,5 @@ while len(light_list) > 0:  # main loop
         for ptcl in sublist:
             ptcl.tryRefractReflect()
             ptcl.pos = ptcl.nextpos()
-            ptcl.opacity = 0
             if mag(ptcl.pos) > (drop_furthest+2*drop_r):
                 sublist.remove(ptcl)

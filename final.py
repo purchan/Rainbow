@@ -4,11 +4,14 @@ import functools
 from vpython import *
 
 # WIP
-## camera rotation(?)
-## energy instead of random
+## E - light angle   (hold wavelength   : red.pr)
+## E - wavelength    (hold angle        : 15~75)
+## i angle - o angle (hold wavelength   : red.pr)
 
-# Reference
-def Z(T,p,xw): # compressibility
+# alive , set rl
+
+# Ref
+def Z(T,p,xw):       # compressibility
     t=T-273.15
     a0 = 1.58123e-6   #K·Pa^-1
     a1 = -2.9331e-8   #Pa^-1
@@ -20,7 +23,7 @@ def Z(T,p,xw): # compressibility
     d  = 1.83e-11     #K^2·Pa^-2
     e  = -0.765e-8    #K^2·Pa^-2
     return 1-(p/T)*(a0+a1*t+a2*t**2+(b0+b1*t)*xw+(c0+c1*t)*xw**2) + (p/T)**2*(d+e*xw**2)
-def n(λ,t,p,h,xc):
+def n(λ,t,p,h,xc):   # 0.3   < λ < 1.69
     # λ: wavelength, 0.3 to 1.69 μm 
     # t: temperature, -40 to +100 °C
     # p: pressure, 80000 to 120000 Pa
@@ -91,8 +94,8 @@ def n(λ,t,p,h,xc):
     
     nprop = 1 + (ρa/ρaxs)*(naxs-1) + (ρw/ρws)*(nws-1)
     
-    return nprop     # 0.3   < λ < 1.69
-def lambdaToRgb(λ):
+    return nprop
+def lambdaToRgb(λ):  # 0.38  < λ < 0.78
     λ *= 1000
     gamma = 0.80
     intensityMax = 1
@@ -142,8 +145,8 @@ def lambdaToRgb(λ):
     if not b==0:
         b = intensityMax * pow(b*factor, gamma)
     
-    return vec(r, g, b)        # 0.38  < λ < 0.78
-def lambdaToNW(λ):
+    return vec(r, g, b)
+def lambdaToNW(λ):   # 0.182 < λ < 1.129
     a  = 0.5672526103
     a1 = 0.1736581125
     a2 = 0.021211531502
@@ -154,144 +157,127 @@ def lambdaToNW(λ):
     b2 = 0.02617260739
     b3 = 10.73888649
      
-    return sqrt(1 + a/(1-b/λ**2) + a1/(1-b1/λ**2) + a2/(1-b2/λ**2) + a3/(1-b3/λ**2)) # 0.182 < λ < 1.129
+    return sqrt(1 + a/(1-b/λ**2) + a1/(1-b1/λ**2) + a2/(1-b2/λ**2) + a3/(1-b3/λ**2))
+lambdaToN = functools.partial(n, t=19, p=101325, h=0, xc=400)
 
-lambdaToN   = functools.partial(n, t=19, p=101325, h=0, xc=400)  # check n for specific information
-# Configurable Constants
-## Simulation
-background_color = vec(1, 0.92, 0.80)
-dt     = 0.001   # time step
-rt     = 1000    # max rate
+# Config
+## Simul Env
+scene = canvas(width=800, height=800, center=vec(0, 0, 0), background=vec(1, 0.92, 0.80))
+dt    = 0.001
+rt    = 1000
+## Gen
+genL  = [vec(-60, -40, 0)]
+genD  = [vec(0, 0, 0)]
+lisL  = [[]]
+lisD  = []
 
-light_r = 0.0001
-light_v = vec(10, 0, 0)
-light_maketr = True
-light_trail  = 0.15
-
-drop_r  = 50
-
-## Generator
-light_gen = [vec(-60, -40, x) for x in range(-15, 20, 5)]
-drop_gen  = [vec(0, 0, 0)]
-
-light_list = [[]]
-drop_list  = []
-
-# functions
-class LP(box):     # Light Particle
-    def __init__(self, λ, pos, _rl, _v=light_v, _e=1):
-        global light_r, light_v, light_maketr, light_trail
-        self.λ = λ
-        box.__init__(self, pos=pos, axis=vec(0,1,0), size=vec(light_r,light_r,light_r), color=lambdaToRgb(λ), make_trail=light_maketr, trail_radius=light_trail)
-        
-        self.n = lambdaToN(λ)
+lisR  = []
+def gatherResult(o, _str):
+    lisR.append({"PS":_str, "RL": o.rl, "WL": o.λ, "E ":o.E, "Ip":o.initpos, "Cp":o.pos})
+    
+def printResult():
+    for res in lisR:
+        print('{')
+        for key in res:
+            print('    "',key,'" :',res[key])
+        print('},')
+class LP(box):
+    def __init__(self, λ, pos, rl, v=vec(10, 0, 0), E=1, initpos = vec(-1,-1,-1)):
+        box.__init__(self, pos=pos, axis=vec(0,1,0), size=vec(1E-4, 1E-4, 1E-4), color=lambdaToRgb(λ), make_trail=True, trail_radius=0.15)
+        self.λ  = λ
+        self.n  = lambdaToN(λ)
         self.nw = lambdaToNW(λ)
-        
-        self.v = _v
-        
-        # assert _rl == "r" or "l"
-        self.setEnergy(_e)
-        
-        self._rl = _rl
+        self.v  = v
+        self.E  = E
+        self.rl = rl
+        self.initpos = initpos
+        self.alive = True
+        self.checkCount()
+    def checkCount(self):
+        ck = len(self.rl)
+        if   ck==2:
+            self.initpos = self.pos
+        elif ck==4:
+            gatherResult(self, "p")
+        elif ck==5:
+            gatherResult(self, "s")
+            self.alive = False
+            self.v = vec(0, 0, 0)
     def nextpos(self):
         global dt
         return self.pos + self.v * dt
-    def setEnergy(self, _e):
-        if   _e > 1:
-            _e = 1
-        elif _e < 0:
-            _e = 0
-        self.E   = _e         # Energy
     def tryRefractReflect(self):
-        global drop_list
-        for drop in drop_list:
+        global lisD
+        for drop in lisD:
             dis_dl = drop.pos - self.pos
-            # res[1] == hasRefract()
             if   mag(dis_dl)>drop.r and mag(drop.pos-self.nextpos())<drop.r:
-                res = self.fraction("a2w", drop)
-                self.v = res[0]
-                while mag(dis_dl)>drop.r and res[1]:
-                    self.pos = self.nextpos()
-                    dis_dl = drop.pos - self.pos
+                self.fraction(self.n, self.nw, drop)
             elif mag(dis_dl)<drop.r and mag(drop.pos-self.nextpos())>drop.r:
-                res = self.fraction("w2a", drop)
-                self.v = res[0]
-                while mag(dis_dl)<drop.r and res[1]:
-                    self.pos = self.nextpos()
-                    dis_dl = drop.pos - self.pos
-    def fraction(self, _str, drop):
-        global light_list
-        assert _str == "a2w" or _str == "w2a"
-        if _str == "a2w":
-            n1 = self.n
-            n2 = self.nw
-        elif _str == "w2a":
-            n1 = self.nw
-            n2 = self.n
+                self.fraction(self.nw, self.n, drop)
+    def fraction(self, n1, n2, drop):    # res = (v, hasRefract)
+        global lisL
         θi = diff_angle(drop.pos-self.pos,self.v)
-        if θi > m.pi/2:
-            θi = m.pi - θi
-        linear_proj1 = proj(self.v,drop.pos-self.pos)
-        planar_proj1 = self.v-linear_proj1
+        if θi > m.pi/2: θi = m.pi - θi
+        Lproj1 = proj(self.v,drop.pos-self.pos)
+        Pproj1 = self.v - Lproj1
         try:
             θ2 = asin(sin(θi)*n1/n2)
         except:
-            return (planar_proj1-linear_proj1, False)
+            nl = LP(self.λ, self.pos, self.rl+"l", Pproj1-Lproj1, self.E, self.initpos)
+            lisL[0].append(nl)
         else:
             # Fresnel equation, sunlight is classify as unpolarized
             Rs = ((n1*m.cos(θi) - n2*m.cos(θ2))/(n1*m.cos(θi) + n2*m.cos(θ2)))**2
             Rp = ((n1*m.cos(θ2) - n2*m.cos(θi))/(n1*m.cos(θ2) + n2*m.cos(θi)))**2
-            rl = (Rs+Rp)/2
+            Erl = (Rs+Rp)/2
             
-            linear_proj2 = mag(self.v)*cos(θ2)*norm(linear_proj1)
-            planar_proj2 = mag(self.v)*sin(θ2)*norm(planar_proj1)
-            if self._rl=="r":     # Refraction
-                self.setEnergy(rl)
+            Lproj2 = mag(self.v)*cos(θ2)*norm(Lproj1)
+            Pproj2 = mag(self.v)*sin(θ2)*norm(Pproj1)
+            
+            nl = LP(self.λ, self.pos, self.rl+"l", Pproj1-Lproj1, self.E*(1-Erl), self.initpos)
+            nr = LP(self.λ, self.pos, self.rl+"r", Pproj2+Lproj2, self.E*(Erl), self.initpos)
+            if   n1 < n2 and nr.alive:
+                while mag(drop.pos - nr.pos)>drop.r:
+                    nr.pos = nr.nextpos()
+            elif nr.alive:
+                while mag(drop.pos - nr.pos)<drop.r:
+                    nr.pos = nr.nextpos()
+            lisL[0].append(nl)
+            lisL[0].append(nr)
+        finally:
+            self.alive = False
+            self.v     = vec(0, 0, 0)
                 
-                lp_l = LP(self.λ, self.pos, "l", planar_proj1-linear_proj1, self.E*(1-rl))
-                light_list[0].append(lp_l)
-                
-                return (linear_proj2+planar_proj2, True)
-            if self._rl=="l":     # Reflection
-                self.setEnergy(1-rl)
-                
-                lp_r = LP(self.λ, self.pos, "r", planar_proj2+linear_proj2, self.E*(rl))
-                while mag(drop.pos - lp_r.pos)<drop.r:
-                    lp_r.pos = lp_r.nextpos()
-                
-                light_list[0].append(lp_r)
-                
-                return (planar_proj1-linear_proj1, False)
-
-# main code
-## Set-up scene
-scene = canvas(width=800, height=800, center=vec(0, 0, 0), background=background_color)
-
-for pos in light_gen:       # generateLight
+for pos in genL:       # generateLight
     sublist = []
+    
     for λ in np.arange(0.38, 0.78, 0.01):
-        tmpr = LP(λ, pos, "r")
+        tmpr = LP(λ, pos, "-", vec(10, 0, 0))
         sublist.append(tmpr)
-    light_list.append(sublist)
+        
+    lisL.append(sublist)
 
-drop_furthest = mag(drop_gen[0])
-for pos in drop_gen:        # generateDrop
+drop_furthest = mag(genD[0])
+for pos in genD:        # generateDrop
     # assert every drop does not collide with each other
-    tmp   = sphere(radius=drop_r, color=color.white,opacity=0.1)
+    tmp   = sphere(radius=50, color=color.white,opacity=0.1)
     tmp.r = tmp.radius
     tmp.pos = pos
-    drop_list.append(tmp)
+    lisD.append(tmp)
     
     if mag(pos) > drop_furthest:
         drop_furthest = mag(pos)
 
-while len(light_list) > 0:  # main loop
+while len(lisL) > 0:  # main loop
     rate(rt)
-    for sublist in light_list:
-        if (len(sublist)==0 and light_list.index(sublist)!=0) or (len(light_list)==1 and len(light_list[0])==0):
-            light_list.remove(sublist)
+    for sublist in lisL:
+        if (len(sublist)==0 and lisL.index(sublist)!=0) or (len(lisL)==1 and len(lisL[0])==0):
+            lisL.remove(sublist)
         for ptcl in sublist:
             ptcl.tryRefractReflect()
-            ptcl.pos = ptcl.nextpos()
-            if mag(ptcl.pos) > (drop_furthest+2*drop_r):
+            if mag(ptcl.pos) > (drop_furthest+100) or not ptcl.alive:
                 sublist.remove(ptcl)
+            else:
+                ptcl.pos = ptcl.nextpos()
+
+printResult()

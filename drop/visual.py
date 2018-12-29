@@ -1,14 +1,12 @@
 import numpy  as np
 import math   as m
 import functools
-from vpython import *
+from   vpython import *
 
 # WIP
 ## E - light angle   (hold wavelength   : red.pr)
 ## E - wavelength    (hold angle        : 15~75)
 ## i angle - o angle (hold wavelength   : red.pr)
-
-# alive , set rl
 
 # Ref
 def Z(T,p,xw):       # compressibility
